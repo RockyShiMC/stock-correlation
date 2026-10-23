@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>登录 · 逻辑相关性分析</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="container">
+    <form class="card login-box" id="form">
+      <div class="card-title">登录</div>
+      <div class="field">
+        <label for="username">用户名</label>
+        <input type="text" id="username" autocomplete="username" required autofocus>
+      </div>
+      <div class="field">
+        <label for="password">密码</label>
+        <input type="password" id="password" autocomplete="current-password" required>
+      </div>
+      <div class="field error" id="error" hidden></div>
+      <button type="submit" class="primary" id="submit">登录</button>
+      <p class="muted">仅供个人研究，不构成投资建议</p>
+    </form>
+  </div>
+  <script>
+    // 登录页不加载 common.js（它在未登录时会跳回本页）
+    const form = document.getElementById("form");
+    const errorBox = document.getElementById("error");
+    const submit = document.getElementById("submit");
+
+    function nextUrl() {
+      const next = new URLSearchParams(location.search).get("next") || "/";
+      // 只允许站内相对路径，防止跳转到外部网站
+      return next.startsWith("/") && !next.startsWith("//") ? next : "/";
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      errorBox.hidden = true;
+      submit.disabled = true;
+      try {
+        const res = await fetch("/login", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: document.getElementById("username").value,
+            password: document.getElementById("password").value,
+          }),
+        });
+        if (res.ok) {
+          location.href = nextUrl();
+          return;
+        }
+        const data = await res.json().catch(() => ({}));
+        errorBox.textContent = typeof data.detail === "string" ? data.detail : `登录失败（${res.status}）`;
+        errorBox.hidden = false;
+      } catch (err) {
+        errorBox.textContent = "网络错误：" + err.message;
+        errorBox.hidden = false;
+      } finally {
+        submit.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

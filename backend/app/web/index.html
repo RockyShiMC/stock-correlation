@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>选择标的 · 逻辑相关性分析</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="container">
+    <form class="card search-bar" id="search-form">
+      <input type="text" id="q" placeholder="输入名称或代码，如 太极实业 / 谷歌 / 600667" autocomplete="off">
+      <button type="submit" class="primary" id="search-btn">搜索</button>
+    </form>
+
+    <div class="card">
+      <div class="card-title" id="selected-title">已选标的（0/2）</div>
+      <div id="selected"></div>
+      <div class="row" style="margin-top:12px">
+        <button class="primary" id="compare" disabled>对比分析</button>
+      </div>
+    </div>
+
+    <div id="status"></div>
+    <div class="card" id="results" hidden></div>
+  </div>
+
+  <script src="/common.js"></script>
+  <script>
+    const SELECTED_KEY = "selected";
+    const key = (s) => `${s.market}:${s.symbol}`;
+    let selected = storageGet(SELECTED_KEY, []);
+    let results = [];
+
+    const $ = (id) => document.getElementById(id);
+
+    function renderSelected() {
+      $("selected-title").textContent = `已选标的（${selected.length}/2）`;
+      const box = $("selected");
+      box.replaceChildren();
+      if (!selected.length) {
+        box.append(el("div", { class: "muted" }, "在搜索结果中点击选择两个标的"));
+      }
+      selected.forEach((s, i) => {
+        box.append(el("div", { class: "row selected-item" },
+          el("span", {}, s.name),
+          el("span", { class: "muted" }, s.symbol),
+          marketTag(s.market),
+          el("span", { class: "spacer", style: "flex:1" }),
+          el("button", { class: "link", onclick: () => { selected.splice(i, 1); save(); } }, "移除")));
+      });
+      $("compare").disabled = selected.length < 2;
+    }
+
+    function renderResults() {
+      const box = $("results");
+      box.replaceChildren();
+      box.hidden = !results.length;
+      const keys = selected.map(key);
+      results.forEach((r) => {
+        const checked = keys.includes(key(r));
+        const detailUrl = `/stock.html?symbol=${encodeURIComponent(r.symbol)}&market=${r.market}&name=${encodeURIComponent(r.name)}`;
+        box.append(el("div", { class: "result" + (checked ? " checked" : ""), onclick: () => toggle(r) },
+          el("div", { class: "check" }, checked ? "✓" : ""),
+          el("div", { class: "info" },
+            el("div", {}, r.name, marketTag(r.market)),
+            el("div", { class: "muted" }, r.symbol)),
+          el("a", { href: detailUrl, onclick: (e) => e.stopPropagation() }, "详情 ›")));
+      });
+    }
+
+    function save() {
+      storageSet(SELECTED_KEY, selected);
+      renderSelected();
+      renderResults();
+    }
+
+    function toggle(r) {
+      const i = selected.findIndex((s) => key(s) === key(r));
+      if (i >= 0) {
+        selected.splice(i, 1);
+      } else if (selected.length >= 2) {
+        alert("最多选择两个标的");
+        return;
+      } else {
+        selected.push({ symbol: r.symbol, name: r.name, market: r.market });
+      }
+      save();
+    }
+
+    function setStatus(text, cls = "muted center") {
+      $("status").replaceChildren(text ? el("div", { class: cls }, text) : "");
+    }
+
+    $("search-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const q = $("q").value.trim();
+      if (!q) return;
+      $("search-btn").disabled = true;
+      setStatus("搜索中…（代码表过期时后端需重新下载，美股约 10 分钟）");
+      try {
+        results = await api("/search?q=" + encodeURIComponent(q));
+        setStatus(results.length ? "" : "没有找到匹配的标的");
+      } catch (err) {
+        results = [];
+        setStatus(err.message, "card error");
+      } finally {
+        $("search-btn").disabled = false;
+        renderResults();
+      }
+    });
+
+    $("compare").addEventListener("click", () => {
+      const [a, b] = selected;
+      if (!a || !b) return;
+      const p = (prefix, s) => `${prefix}Symbol=${encodeURIComponent(s.symbol)}&${prefix}Market=${s.market}`;
+      location.href = `/analysis.html?${p("a", a)}&${p("b", b)}`;
+    });
+
+    renderTopbar();
+    renderSelected();
+  </script>
+</body>
+</html>

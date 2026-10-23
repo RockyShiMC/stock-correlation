@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>对比分析 · 逻辑相关性分析</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="container" id="main"></div>
+  <div class="disclaimer">仅供个人研究，不构成投资建议</div>
+
+  <script src="/vendor/echarts.min.js"></script>
+  <script src="/common.js"></script>
+  <script>
+    const STATUS_TEXT = { pending: "排队中", running: "分析中" };
+    const CONFIDENCE_TEXT = { high: "高", medium: "中", low: "低" };
+    // 统计数字原样展示，不做二次计算
+    const fmt = (v) => (v === null || v === undefined ? "—" : String(v));
+
+    const params = query();
+    const req = {
+      a: { symbol: params.get("aSymbol") || "", market: params.get("aMarket") || "" },
+      b: { symbol: params.get("bSymbol") || "", market: params.get("bMarket") || "" },
+    };
+    const main = document.getElementById("main");
+    let timer = null;
+    let clock = null;
+
+    function renderLoading(statusText, elapsed) {
+      main.replaceChildren(el("div", { class: "card center" },
+        el("div", { class: "spinner" }),
+        el("div", {}, `${statusText}… 已用时 ${elapsed} 秒`),
+        el("div", { class: "muted" }, "每 3 秒查询一次结果，通常需要 1～2 分钟")));
+    }
+
+    function renderFailed(message) {
+      main.replaceChildren(el("div", { class: "card error" },
+        el("div", {}, "分析失败：" + message),
+        el("button", { style: "margin-top:10px", onclick: start }, "重新提交")));
+    }
+
+    function rollingOption(rolling) {
+      return {
+        animation: false,
+        tooltip: { trigger: "axis", confine: true },
+        legend: { data: ["20日", "60日"], top: 0 },
+        grid: { left: 44, right: 16, top: 32, bottom: 28 },
+        xAxis: { type: "category", data: rolling.dates },
+        yAxis: { type: "value", min: -1, max: 1, interval: 0.5, splitLine: { lineStyle: { color: "#eef0f3" } } },
+        series: [
+          { name: "20日", type: "line", data: rolling.w20, showSymbol: false, connectNulls: false, lineStyle: { width: 1.5 } },
+          { name: "60日", type: "line", data: rolling.w60, showSymbol: false, connectNulls: false, lineStyle: { width: 2 } },
+        ],
+        color: ["#2f63c9", "#e08a00"],
+      };
+    }
+
+    function statRow(label, value) {
+      return el("div", { class: "row between" }, el("span", {}, label), el("span", { class: "num-sm" }, value));
+    }
+
+    function newsItem(n) {
+      const url = safeUrl(n.url);
+      return el("div", { class: "news" },
+        el("div", {}, el("span", { class: "nid" }, n.id),
+          url ? el("a", { href: url, target: "_blank", rel: "noopener noreferrer" }, n.title) : n.title),
+        el("div", { class: "muted" }, [n.name, n.source, n.published_at].filter(Boolean).join(" · ")));
+    }
+
+    function chainCard(c, newsById) {
+      const evidence = c.evidence_ids.map((id) => newsById[id] || { id, title: "（未找到该新闻）" });
+      const toggleText = el("span", { class: "muted" }, `查看引用 ${evidence.length} 条`);
+      const box = el("div", { class: "evidence", hidden: true }, evidence.map(newsItem));
+      const card = el("div", { class: "card chain" },
+        el("div", { class: "row between" },
+          el("span", { class: `conf conf-${c.confidence}` }, "置信度 " + (CONFIDENCE_TEXT[c.confidence] || c.confidence)),
+          toggleText),
+        el("div", { style: "margin-top:6px" }, c.claim),
+        box);
+      card.addEventListener("click", (e) => {
+        if (e.target.closest("a")) return; // 点新闻链接时不折叠
+        box.hidden = !box.hidden;
+        toggleText.textContent = box.hidden ? `查看引用 ${evidence.length} 条` : "收起";
+      });
+      return card;
+    }
+
+    function renderResult(result) {
+      const s = result.stats;
+      const llm = result.llm;
+      const newsById = {};
+      result.news.forEach((n) => { newsById[n.id] = n; });
+      const ll = s.lead_lag;
+      const chartBox = el("div", { class: "chart" });
+
+      main.replaceChildren(
+        el("div", { class: "card row between" },
+          el("strong", {}, s.a.name, marketTag(s.a.market, `${s.a.symbol}.${s.a.market}`)),
+          el("span", { class: "muted" }, "vs"),
+          el("strong", {}, s.b.name, marketTag(s.b.market, `${s.b.symbol}.${s.b.market}`))),
+
+        el("div", { class: "card" },
+          el("div", { class: "card-title" }, "统计相关（日收益率）"),
+          el("div", { class: "grid" },
+            el("div", { class: "cell" }, el("div", { class: "num" }, fmt(s.correlation.pearson)), el("div", { class: "muted" }, "Pearson")),
+            el("div", { class: "cell" }, el("div", { class: "num" }, fmt(s.correlation.spearman)), el("div", { class: "muted" }, "Spearman")),
+            el("div", { class: "cell" }, el("div", { class: "num" }, s.aligned.sample_days), el("div", { class: "muted" }, "对齐样本天数"))),
+          el("div", { class: "muted" },
+            `对齐区间 ${s.aligned.first_date || "—"} ~ ${s.aligned.last_date || "—"}，日收益率 ${s.aligned.return_days} 个`)),
+
+        el("div", { class: "card" },
+          el("div", { class: "card-title" }, "领先滞后"),
+          ll.applicable
+            ? [statRow(ll.description, fmt(ll.pearson)), el("div", { class: "muted" }, `样本 ${ll.sample_days} 对`)]
+            : el("div", { class: "muted" }, ll.description)),
+
+        el("div", { class: "card" },
+          el("div", { class: "card-title" }, "大盘对照（Pearson）"),
+          statRow(`${s.a.name} vs ${s.benchmark.a.index_name}`, fmt(s.benchmark.a.pearson)),
+          el("div", { class: "muted" }, `样本 ${s.benchmark.a.sample_days} 天`),
+          statRow(`${s.b.name} vs ${s.benchmark.b.index_name}`, fmt(s.benchmark.b.pearson)),
+          el("div", { class: "muted" }, `样本 ${s.benchmark.b.sample_days} 天`)),
+
+        el("div", { class: "card" }, el("div", { class: "card-title" }, "滚动相关"), chartBox),
+
+        el("div", { class: "card" },
+          el("div", { class: "card-title" }, "逻辑关联"),
+          el("div", { class: "summary" }, llm.summary),
+          (result.news_notes || []).map((n) => el("div", { class: "note" }, "注：" + n))),
+
+        llm.logic_chains.length
+          ? llm.logic_chains.map((c) => chainCard(c, newsById))
+          : el("div", { class: "card muted" }, "没有可引用新闻支撑的逻辑链"),
+
+        llm.caveats.length
+          ? el("div", { class: "card" }, el("div", { class: "card-title" }, "注意事项"),
+              llm.caveats.map((c) => el("div", { class: "muted" }, "· " + c)))
+          : null,
+
+        el("div", { class: "muted center" }, `新闻 ${result.news.length} 条 · 生成于 ${result.generated_at}`));
+
+      const chart = echarts.init(chartBox);
+      chart.setOption(rollingOption(s.rolling));
+      window.addEventListener("resize", () => chart.resize());
+    }
+
+    async function poll(taskId) {
+      try {
+        const task = await api(`/analysis/${encodeURIComponent(taskId)}`);
+        if (task.status === "done") {
+          clearInterval(clock);
+          renderResult(task.result);
+          return;
+        }
+        if (task.status === "failed") {
+          clearInterval(clock);
+          renderFailed(task.error || "分析失败");
+          return;
+        }
+        statusText = STATUS_TEXT[task.status] || task.status;
+      } catch (err) {
+        // 单次轮询失败不终止，下一轮继续
+        statusText = `网络异常，重试中（${err.message}）`;
+      }
+      timer = setTimeout(() => poll(taskId), POLL_INTERVAL_MS);
+    }
+
+    let statusText = "提交中";
+    async function start() {
+      clearTimeout(timer);
+      clearInterval(clock);
+      statusText = "提交中";
+      const t0 = Date.now();
+      const tick = () => renderLoading(statusText, Math.round((Date.now() - t0) / 1000));
+      tick();
+      clock = setInterval(tick, 1000);
+      try {
+        const { task_id } = await api("/analysis", { method: "POST", body: { ...req, days: DAYS } });
+        poll(task_id);
+      } catch (err) {
+        clearInterval(clock);
+        renderFailed(err.message);
+      }
+    }
+
+    renderTopbar();
+    if (!req.a.symbol || !req.b.symbol) {
+      renderFailed("缺少标的参数，请从首页选择两个标的");
+    } else {
+      start();
+    }
+  </script>
+</body>
+</html>

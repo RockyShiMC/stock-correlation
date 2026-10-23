@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>个股 · 逻辑相关性分析</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="container">
+    <div class="card" id="head"></div>
+    <div id="status" class="muted center">加载中…</div>
+    <div class="card" id="chart-card" hidden>
+      <div class="card-title" id="chart-title">日K</div>
+      <div class="chart" id="chart"></div>
+    </div>
+  </div>
+
+  <script src="/vendor/echarts.min.js"></script>
+  <script src="/common.js"></script>
+  <script>
+    const UP = "#e5383b";
+    const DOWN = "#1a9e5f";
+    const params = query();
+    const symbol = params.get("symbol") || "";
+    const market = params.get("market") || "";
+    const $ = (id) => document.getElementById(id);
+
+    function klineOption(items) {
+      const dates = items.map((d) => d.date);
+      // ECharts K 线数据顺序：开、收、低、高
+      const candles = items.map((d) => [d.open, d.close, d.low, d.high]);
+      const volumes = items.map((d) => ({ value: d.volume, itemStyle: { color: d.close >= d.open ? UP : DOWN } }));
+      return {
+        animation: false,
+        tooltip: { trigger: "axis", axisPointer: { type: "cross" }, confine: true },
+        axisPointer: { link: [{ xAxisIndex: "all" }] },
+        grid: [
+          { left: 56, right: 16, top: 16, height: "58%" },
+          { left: 56, right: 16, top: "76%", height: "16%" },
+        ],
+        xAxis: [
+          { type: "category", data: dates, boundaryGap: true },
+          { type: "category", data: dates, gridIndex: 1, boundaryGap: true, axisLabel: { show: false }, axisTick: { show: false } },
+        ],
+        yAxis: [
+          { scale: true, splitLine: { lineStyle: { color: "#eef0f3" } } },
+          { gridIndex: 1, axisLabel: { show: false }, splitLine: { show: false } },
+        ],
+        dataZoom: [{ type: "inside", xAxisIndex: [0, 1] }],
+        series: [
+          { name: "日K", type: "candlestick", data: candles,
+            itemStyle: { color: UP, color0: DOWN, borderColor: UP, borderColor0: DOWN } },
+          { name: "成交量", type: "bar", xAxisIndex: 1, yAxisIndex: 1, data: volumes },
+        ],
+      };
+    }
+
+    function renderHead(name, latest) {
+      const head = $("head");
+      head.replaceChildren(
+        el("div", { class: "card-title" }, name, el("span", { class: "muted" }, " " + symbol), marketTag(market)));
+      if (latest) {
+        const cls = latest.up ? "up" : "down";
+        head.append(
+          el("div", {}, el("span", { class: "price " + cls }, latest.close), el("span", { class: cls }, `${latest.change}  ${latest.pct}`)),
+          el("div", { class: "muted" }, `最新收盘 ${latest.date} · 前复权`));
+      }
+    }
+
+    async function load() {
+      renderHead(params.get("name") || symbol);
+      document.title = `${params.get("name") || symbol} · 逻辑相关性分析`;
+      try {
+        const res = await api(`/kline?symbol=${encodeURIComponent(symbol)}&market=${encodeURIComponent(market)}&days=${DAYS}`);
+        const items = res.items;
+        const last = items[items.length - 1];
+        const prev = items.length > 1 ? items[items.length - 2] : null;
+        const change = prev ? last.close - prev.close : 0;
+        const pct = prev ? (change / prev.close) * 100 : 0;
+        renderHead(res.name, {
+          date: last.date,
+          close: last.close.toFixed(2),
+          change: (change >= 0 ? "+" : "") + change.toFixed(2),
+          pct: (pct >= 0 ? "+" : "") + pct.toFixed(2) + "%",
+          up: change >= 0,
+        });
+        $("status").hidden = true;
+        $("chart-card").hidden = false;
+        $("chart-title").textContent = `日K（最近 ${items.length} 个交易日）`;
+        const chart = echarts.init($("chart"));
+        chart.setOption(klineOption(items));
+        window.addEventListener("resize", () => chart.resize());
+      } catch (err) {
+        $("status").replaceChildren(el("div", { class: "card error" }, err.message, " ",
+          el("button", { onclick: () => location.reload() }, "重试")));
+      }
+    }
+
+    renderTopbar();
+    load();
+  </script>
+</body>
+</html>
