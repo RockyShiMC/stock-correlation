@@ -1,0 +1,95 @@
+<view class="container">
+  <!-- 加载 / 失败 -->
+  <view wx:if="{{phase === 'submitting' || phase === 'polling'}}" class="card loading">
+    <view class="spinner"></view>
+    <view>{{statusText}}… 已用时 {{elapsed}} 秒</view>
+    <view class="muted">每 3 秒查询一次结果，通常需要 1～2 分钟</view>
+  </view>
+  <view wx:if="{{phase === 'failed'}}" class="card error">
+    <view>分析失败：{{error}}</view>
+    <button size="mini" class="retry" bindtap="onRetry">重新提交</button>
+  </view>
+
+  <block wx:if="{{view}}">
+    <!-- 标的 -->
+    <view class="card pair">
+      <view>{{view.a.name}}<text class="tag tag-{{view.a.market}}">{{view.a.symbol}}.{{view.a.market}}</text></view>
+      <view class="vs">vs</view>
+      <view>{{view.b.name}}<text class="tag tag-{{view.b.market}}">{{view.b.symbol}}.{{view.b.market}}</text></view>
+    </view>
+
+    <!-- 统计卡片 -->
+    <view class="card">
+      <view class="card-title">统计相关（日收益率）</view>
+      <view class="grid">
+        <view class="cell"><view class="num">{{view.stats.pearson}}</view><view class="muted">Pearson</view></view>
+        <view class="cell"><view class="num">{{view.stats.spearman}}</view><view class="muted">Spearman</view></view>
+        <view class="cell"><view class="num">{{view.stats.sampleDays}}</view><view class="muted">对齐样本天数</view></view>
+      </view>
+      <view class="muted">对齐区间 {{view.stats.range}}，日收益率 {{view.stats.returnDays}} 个</view>
+    </view>
+
+    <view class="card">
+      <view class="card-title">领先滞后</view>
+      <block wx:if="{{view.stats.leadLag.applicable}}">
+        <view class="row"><text>{{view.stats.leadLag.desc}}</text><text class="num-sm">{{view.stats.leadLag.pearson}}</text></view>
+        <view class="muted">样本 {{view.stats.leadLag.sampleDays}} 对</view>
+      </block>
+      <view wx:else class="muted">{{view.stats.leadLag.desc}}</view>
+    </view>
+
+    <view class="card">
+      <view class="card-title">大盘对照（Pearson）</view>
+      <view class="row">
+        <text>{{view.a.name}} vs {{view.stats.benchA.index}}</text>
+        <text class="num-sm">{{view.stats.benchA.pearson}}</text>
+      </view>
+      <view class="muted">样本 {{view.stats.benchA.sampleDays}} 天</view>
+      <view class="row gap">
+        <text>{{view.b.name}} vs {{view.stats.benchB.index}}</text>
+        <text class="num-sm">{{view.stats.benchB.pearson}}</text>
+      </view>
+      <view class="muted">样本 {{view.stats.benchB.sampleDays}} 天</view>
+    </view>
+
+    <!-- 滚动相关 -->
+    <view class="card">
+      <view class="card-title">滚动相关</view>
+      <view class="chart">
+        <ec-canvas id="rolling" canvas-id="rolling" ec="{{ec}}"></ec-canvas>
+      </view>
+    </view>
+
+    <!-- 逻辑关联 -->
+    <view class="card">
+      <view class="card-title">逻辑关联</view>
+      <view class="summary">{{view.summary}}</view>
+      <view wx:for="{{view.newsNotes}}" wx:key="*this" class="note">注：{{item}}</view>
+    </view>
+
+    <view wx:if="{{!view.chains.length}}" class="card muted">没有可引用新闻支撑的逻辑链</view>
+    <view wx:for="{{view.chains}}" wx:key="claim" wx:for-item="chain" class="card chain" data-index="{{index}}" bindtap="onToggleChain">
+      <view class="chain-head">
+        <text class="conf conf-{{chain.confidence}}">置信度 {{chain.confidenceText}}</text>
+        <text class="muted">{{chain.expanded ? '收起' : '查看引用 ' + chain.evidence.length + ' 条'}}</text>
+      </view>
+      <view class="claim">{{chain.claim}}</view>
+      <view wx:if="{{chain.expanded}}" class="evidence">
+        <view wx:for="{{chain.evidence}}" wx:key="id" wx:for-item="n" class="news" data-url="{{n.url}}" catchtap="onCopyLink">
+          <view><text class="nid">{{n.id}}</text>{{n.title}}</view>
+          <view class="muted">{{n.name}} · {{n.source}} · {{n.published_at}}</view>
+          <view wx:if="{{n.url}}" class="link">{{n.url}}（点击复制）</view>
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{view.caveats.length}}" class="card">
+      <view class="card-title">注意事项</view>
+      <view wx:for="{{view.caveats}}" wx:key="*this" class="caveat">· {{item}}</view>
+    </view>
+
+    <view class="muted footer-info">新闻 {{view.newsCount}} 条 · 生成于 {{view.generatedAt}}</view>
+  </block>
+</view>
+
+<view class="disclaimer">仅供个人研究，不构成投资建议</view>

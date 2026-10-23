@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "个股",
+  "usingComponents": {
+    "ec-canvas": "../../components/ec-canvas/ec-canvas"
+  }
+}

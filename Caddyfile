@@ -1,0 +1,5 @@
+# Caddy 自动向 Let's Encrypt 申请并续期证书（需要 DOMAIN 已解析到本机，且 80/443 端口可访问）
+{$DOMAIN} {
+	encode gzip
+	reverse_proxy backend:8000
+}

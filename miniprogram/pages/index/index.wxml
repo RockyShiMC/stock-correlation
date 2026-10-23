@@ -1,0 +1,35 @@
+<view class="container">
+  <view class="search-bar">
+    <input class="search-input" placeholder="输入名称或代码，如 太极实业 / 谷歌 / 600667" value="{{query}}"
+      confirm-type="search" bindinput="onInput" bindconfirm="onSearch" />
+    <button class="search-btn" size="mini" type="primary" bindtap="onSearch" loading="{{loading}}">搜索</button>
+  </view>
+
+  <view class="card">
+    <view class="card-title">已选标的（{{selected.length}}/2）</view>
+    <view wx:if="{{!selected.length}}" class="muted">在搜索结果中点击选择两个标的</view>
+    <view wx:for="{{selected}}" wx:key="symbol" class="selected-item">
+      <text>{{item.name}}</text>
+      <text class="muted"> {{item.symbol}}</text>
+      <text class="tag tag-{{item.market}}">{{item.market}}</text>
+      <text class="remove" data-index="{{index}}" bindtap="onRemove">移除</text>
+    </view>
+    <button class="compare-btn" type="primary" disabled="{{selected.length < 2}}" bindtap="onCompare">对比分析</button>
+  </view>
+
+  <view wx:if="{{error}}" class="card error">{{error}}</view>
+  <view wx:if="{{loading}}" class="muted center">搜索中…（代码表过期时后端需重新下载，美股约 10 分钟；超时的话稍后再搜一次即可）</view>
+  <view wx:elif="{{searched && !results.length && !error}}" class="muted center">没有找到匹配的标的</view>
+
+  <view wx:if="{{results.length}}" class="card list">
+    <view wx:for="{{results}}" wx:key="symbol" class="result-item {{item.checked ? 'checked' : ''}}"
+      data-index="{{index}}" bindtap="onToggle">
+      <view class="check">{{item.checked ? '✓' : ''}}</view>
+      <view class="info">
+        <view>{{item.name}}<text class="tag tag-{{item.market}}">{{item.market}}</text></view>
+        <view class="muted">{{item.symbol}}</view>
+      </view>
+      <view class="detail" data-index="{{index}}" catchtap="onDetail">详情 ›</view>
+    </view>
+  </view>
+</view>

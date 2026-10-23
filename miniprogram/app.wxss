@@ -1,0 +1,60 @@
+page {
+  background: #f5f6f8;
+  color: #1f2329;
+  font-size: 28rpx;
+  line-height: 1.5;
+}
+
+.container {
+  padding: 24rpx;
+  padding-bottom: 140rpx; /* 给底部免责声明留位置 */
+}
+
+.card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 24rpx;
+}
+
+.card-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  margin-bottom: 16rpx;
+}
+
+.muted {
+  color: #8a9099;
+  font-size: 24rpx;
+}
+
+.tag {
+  display: inline-block;
+  font-size: 22rpx;
+  padding: 2rpx 12rpx;
+  border-radius: 8rpx;
+  background: #eef1f5;
+  color: #4e5969;
+  margin-left: 12rpx;
+}
+
+.tag-CN { background: #fdecec; color: #c73a3a; }
+.tag-US { background: #e8f0fd; color: #2f63c9; }
+
+.error {
+  color: #c73a3a;
+}
+
+.disclaimer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 20rpx 24rpx calc(20rpx + env(safe-area-inset-bottom));
+  background: #fffbe6;
+  color: #8a6d00;
+  font-size: 24rpx;
+  text-align: center;
+  border-top: 1rpx solid #f0e2a8;
+  z-index: 10;
+}

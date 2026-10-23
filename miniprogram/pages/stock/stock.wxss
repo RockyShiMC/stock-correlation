@@ -1,0 +1,35 @@
+.title {
+  font-size: 34rpx;
+  font-weight: 600;
+}
+
+.price-row {
+  margin: 12rpx 0 4rpx;
+}
+
+.price {
+  font-size: 56rpx;
+  font-weight: 600;
+  margin-right: 20rpx;
+}
+
+.change {
+  font-size: 28rpx;
+}
+
+.up { color: #e5383b; }
+.down { color: #1a9e5f; }
+
+.chart {
+  width: 100%;
+  height: 640rpx;
+}
+
+.center {
+  text-align: center;
+  padding: 24rpx 0;
+}
+
+.retry {
+  margin-left: 20rpx;
+}

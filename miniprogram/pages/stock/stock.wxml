@@ -1,0 +1,25 @@
+<view class="container">
+  <view class="card">
+    <view class="title">
+      {{name}}<text class="muted"> {{symbol}}</text><text class="tag tag-{{market}}">{{market}}</text>
+    </view>
+    <view wx:if="{{latest}}" class="price-row">
+      <text class="price {{latest.up ? 'up' : 'down'}}">{{latest.close}}</text>
+      <text class="change {{latest.up ? 'up' : 'down'}}">{{latest.change}}  {{latest.pct}}</text>
+    </view>
+    <view wx:if="{{latest}}" class="muted">最新收盘 {{latest.date}} · 前复权</view>
+  </view>
+
+  <view wx:if="{{loading}}" class="muted center">加载中…</view>
+  <view wx:if="{{error}}" class="card error">
+    {{error}}
+    <button size="mini" class="retry" bindtap="load">重试</button>
+  </view>
+
+  <view wx:if="{{latest}}" class="card">
+    <view class="card-title">日K（最近 {{count}} 个交易日）</view>
+    <view class="chart">
+      <ec-canvas id="kline" canvas-id="kline" ec="{{ec}}"></ec-canvas>
+    </view>
+  </view>
+</view>

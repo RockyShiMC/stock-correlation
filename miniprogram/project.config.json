@@ -1,0 +1,19 @@
+{
+  "description": "股票逻辑相关性分析（个人试用版）",
+  "compileType": "miniprogram",
+  "appid": "touristappid",
+  "projectname": "stock-correlation",
+  "libVersion": "3.0.0",
+  "setting": {
+    "urlCheck": false,
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "minified": true
+  },
+  "packOptions": {
+    "ignore": [
+      { "value": "components/ec-canvas/LICENSE", "type": "file" }
+    ]
+  }
+}

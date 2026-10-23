@@ -1,0 +1,10 @@
+akshare==1.19.1
+pandas>=2.2
+anthropic==2.1.0
+fastapi==0.161.1
+uvicorn[standard]==0.54.0
+pydantic==2.14.1
+python-dotenv==1.2.4
+tzdata
+pytest>=8
+httpx

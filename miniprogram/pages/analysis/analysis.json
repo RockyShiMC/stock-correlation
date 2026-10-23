@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "对比分析",
+  "usingComponents": {
+    "ec-canvas": "../../components/ec-canvas/ec-canvas"
+  }
+}
